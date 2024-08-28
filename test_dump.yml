@@ -1,0 +1,218 @@
+type: ycli
+version: 1
+name: ROS version check
+detect:
+  name: ROS
+  ssh:
+    id_string: Mocana
+    cipher_used: aes128-ctr
+    login_greeting: 
+      - Press 'Enter' to continue...
+  cli:
+   - cmd: Key(13)Key(19)
+   - cmd: version
+     contains: 
+       - Current ROS
+cli:
+  - cmd: route
+  - cmd: Key(19)
+---
+type: ycli
+version: 1
+name: MSPS firmware versions check
+detect:
+  name: MSPS
+  ssh:
+    id_string: OpenSSH
+    login_greeting: 
+      - SIMATIC NET
+      - RUGGEDCOM RM1200
+cli:
+  - cmd: show versions
+--- 
+type: ycli
+version: 1
+name: ROX version check, in login greeting
+detect:
+  name: ROX
+  ssh:
+    id_string: OpenSSH
+    login_greeting: 
+      - Webmin
+      - Welcome to RX
+---
+type: ycli
+version: 1
+name: ROXII chassis and storage data modeling example using "textfsm" and "contains"
+detect:
+  name: ROXII
+  ssh:
+    id_string: ConfD
+    login_greeting: 
+      - Rugged CLI
+cli:
+  - cmd: show chassis chassis-status
+    match:
+      - ylib: rox.show_chassis_ylib
+      - ylib: rox.show_chassis_ylib_contains_rx
+      #
+      - new: rox2.show.chassis.chassis_status
+        textfsm: |
+          Value model (\S+)
+          Value softwareLicense (.*)
+          Value release (.*)
+          Value serial (.*)
+          Value mlfb (\S+)
+          Value maintModeStatus (\S+)
+          Value lastIntegrityCheckResult (\S+)
+          Value lastIntegrityCheck (\S+)
+                
+          Start
+            ^\s+model\s+ ${model}
+            ^\s+software license\s+ "${softwareLicense}"
+            ^\s+mlfb\s+ ${mlfb} 
+            ^\s+rox release\s+ "${release}"
+            ^\s+system serial number\s+ ${serial} 
+            ^\s+last integrity check result\s+${lastIntegrityCheckResult}
+            ^\s+last integrity check \s+${lastIntegrityCheck}
+            ^\s+maint mode status\s+ ${maintModeStatus} -> Record
+      - new: rox2.show.chassis.chassis_status.contains_2_15_0
+        contains: 
+          - ROX 
+          - 2.15.0
+  - cmd: show chassis storage flash
+    match:
+      - new: rox2.show.chassis.storage.flash
+        textfsm: | 
+          Value StorageName (\S+)
+          Value TotalCapacity (\S+)
+          Value CurrentPartitionCapacity (\S+)
+          Value CurrentPartition ("Partition #[0-9]+")
+          Value SecondaryPartitionCapacity (\d+)
+          Value CurrentPartitionUsage (\d+)
+
+          Start
+            ^\s+storage name\s+${StorageName}
+            ^\s+total capacity\s+${TotalCapacity} 
+            ^\s+current partition\s+${CurrentPartition} 
+            ^\s+secondary partition capacity\s+${SecondaryPartitionCapacity}
+            ^\s+current partition capacity\s+${CurrentPartitionCapacity}
+            ^\s+current partition usage\s+${CurrentPartitionUsage} -> Record
+---
+type: ycli
+version: 1
+name: WinBST check for list of associted CPEs
+detect:
+  name: ROXII
+  ssh:
+    id_string: Mocana
+    login_greeting:
+      - VxWorks
+cli:
+  - cmd: cbe "showSs" 
+---
+type: ycli
+version: 1
+name: ROXII chassis and storage data modeling example using "textfsm" and "contains"
+detect:
+  name: ROXII
+  ssh:
+    id_string: ConfD
+    login_greeting: 
+      - Rugged CLI
+cli:
+  - cmd: show chassis chassis-status
+---
+type: "ycfg"
+version: 1
+name: Netdd global variables configuration
+globals:
+ threads: 70 #range 1 to 100, default 10, number of concurrent IP sessions, a thread is created for each IP session
+ ping:
+  count: 4 #default 4, number of ping to perform, 0 will disable running ping
+  interval: 0.1 #default 1, interval in seconds between sending each packet
+  timeout: 1 #default 2, maximum waiting time for receiving a reply in seconds
+  payload_size: 56 #default 56, size of payload in bytes
+ traceroute:
+  count: 2 #default 2, number of ping to perform per hop, 0 will disable running traceroute
+  interval: 0.05 #default 0.05, interval in seconds between sending each packet 
+  timeout: 1 #default 2, maximum waiting time for receiving a reply in seconds
+  payload_size: 56 #default 56, size of payload in bytes
+  first_hop: 1 #default 1, initial TTL value used in outgoing probe packets
+  max_hops: 5 #default 30, maximum TTL (number of hops) used in outgoing probe packets
+ ssh:
+  timeout: 10 #default None, timeout (in seconds) for the TCP connect
+  keep_ssh: True #(Experimental feature, True/False, default False, keep same SSH channel for running commands on next Ycli)
+ sleep: 
+  login_pause: 2 #default 2, time to wait in seconds before receving the data promted on terminal after initial ssh login
+  output_pause: 2 #default 2, time to wait in seconds for a command to process the output in the paramiko ssh session
+  cmd_pause: 0 #default 0, time to wait in seconds after a command is sent
+ window_size: 9000 #default 9000, maximum value in bytes that can be obtained after running a command in the paramiko ssh session
+
+ #icmplib parameters definition for ping and traceroute: https://github.com/ValentinBELYN/icmplib
+---
+type: ylib   
+version: 1 
+name: Maintenance keys addition 
+# Global Object library with user provided values. Accessible from ycli and yvis.
+import: # (optional, leaflet group of elements)
+# allows data imports in to YLIB model by user.
+# at least one element, definition required.
+# Globally unique name of YLIB element
+ rox_maintkeys:  # (required, leaflet list of elements)
+    # at least one element of the list is required.
+  aes128-ctr: AQ9Ob3QgQXZhaWxhYmxlAhpv #(optional, text line)
+      # typing syntax follows: key_name: key_value.
+      # key_name: is user provided name, must be unique within the list, "- " required in the beginning of key_name and must end with  ":".
+      # key_value is user provided value following user defined key_name. 
+  N3FA5E41557401008XXX0015: AQ9Ob3QgQXZhaWxhYmxlAhpv////8E
+match: # (optional, leaflet group of elements)
+# Allows to define new match methods outside of YCLI file.
+ 
+ rox.show_chassis_ylib:
+  textfsm: | # (required, multiple text lines) defines new textfsm syntax based parser. (example below)
+    Value MODEL (\S+)
+    Value RELEASE (.*)
+    Value SERIAL (.*)
+    Value MLFB (\S+)
+
+    Start
+      ^\s+model\s+${MODEL}
+      ^\s+mlfb\s+${MLFB} 
+      ^\s+rox release\s+"${RELEASE}"
+      ^\s+system serial number\s+${SERIAL} -> Record
+ 
+ rox.show_chassis_ylib_norun:
+  textfsm: | # (required, multiple text lines) defines new textfsm syntax based parser. (example below)
+    Value MODEL (\S+)
+    Value RELEASE (.*)
+    Value SERIAL (.*)
+    Value MLFB (\S+)
+
+    Start
+      ^\s+model\s+${MODEL}
+      ^\s+mlfb\s+${MLFB} 
+      ^\s+rox release\s+"${RELEASE}"
+      ^\s+system serial number\s+${SERIAL} -> Record
+
+ rox.show_chassis_ylib_contains_rx: 
+  contains:  # (optional, multiple text lines) defines simple word match in text using contains wrapper.
+   - RX #will show true in IPSM
+
+#  rox:  # (optional, text line)
+#     # Define new data match method
+#     # Creates unique name (IPSM path) for new parser results output storage.
+#     # Doted notation helps better define logical groups path in the name. This allows for better internal methods organizations and tree-branch typing/auto completion assistance. (future) 
+#   show_chassis_ylib: 
+#     textfsm: | # (required, multiple text lines) defines new textfsm syntax based parser. (example below)
+#       Value MODEL (\S+)
+#       Value RELEASE (.*)
+#       Value SERIAL (.*)
+#       Value MLFB (\S+)
+
+#       Start
+#         ^\s+model\s+${MODEL}
+#         ^\s+mlfb\s+${MLFB} 
+#         ^\s+rox release\s+"${RELEASE}"
+#         ^\s+system serial number\s+${SERIAL} -> Record
+  
